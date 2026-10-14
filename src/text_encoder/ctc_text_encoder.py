@@ -3,7 +3,6 @@ from string import ascii_lowercase
 
 import torch
 
-# TODO add CTC decode
 # TODO add BPE, LM, Beam Search support
 # Note: think about metrics and encoder
 # The design can be remarkably improved
@@ -46,23 +45,37 @@ class CTCTextEncoder:
                 f"Can't encode text '{text}'. Unknown chars: '{' '.join(unknown_chars)}'"
             )
 
-    def decode(self, inds) -> str:
+    def decode(self, logits: torch.Tensor) -> str:
         """
         Raw decoding without CTC.
         Used to validate the CTC decoding implementation.
 
         Args:
-            inds (list): list of tokens.
+            logits (Tensor): frame scores with shape (time, vocab).
         Returns:
             raw_text (str): raw text with empty tokens and repetitions.
         """
-        return "".join([self.ind2char[int(ind)] for ind in inds]).strip()
+        inds = logits.argmax(dim=-1).tolist()
+        return "".join([self.ind2char[ind] for ind in inds]).strip()
 
-    def ctc_decode(self, inds) -> str:
-        pass  # TODO
+    def ctc_decode(self, logits: torch.Tensor) -> str:
+        raise NotImplementedError()
 
     @staticmethod
     def normalize_text(text: str):
         text = text.lower()
         text = re.sub(r"[^a-z ]", "", text)
         return text
+
+
+class ArgmaxCTCTextEncoder(CTCTextEncoder):
+    def ctc_decode(self, logits: torch.Tensor) -> str:
+        inds = logits.argmax(dim=-1).tolist()
+        output = ""
+        last_char = None
+        for ind in inds:
+            char = self.ind2char[ind]
+            if char != self.EMPTY_TOK and (last_char is None or char != last_char):
+                output += char
+            last_char = char
+        return output

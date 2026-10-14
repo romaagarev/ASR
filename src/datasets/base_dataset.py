@@ -41,12 +41,11 @@ class BaseDataset(Dataset):
             limit (int | None): if not None, limit the total number of elements
                 in the dataset to 'limit' elements.
             max_audio_length (int): maximum allowed audio length.
-            max_test_length (int): maximum allowed text length.
+            max_text_length (int): maximum allowed text length.
             shuffle_index (bool): if True, shuffle the index. Uses python
                 random package with seed 42.
-            instance_transforms (dict[Callable] | None): transforms that
-                should be applied on the instance. Depend on the
-                tensor name.
+            instance_transforms (dict | None): transforms grouped into
+                wav_transforms and spec_transforms.
         """
         self._assert_index_is_valid(index)
 
@@ -61,7 +60,9 @@ class BaseDataset(Dataset):
 
         self.text_encoder = text_encoder
         self.target_sr = target_sr
-        self.instance_transforms = instance_transforms
+        instance_transforms = instance_transforms or {}
+        self.wav_transforms = instance_transforms.get("wav_transforms", {})
+        self.spec_transforms = instance_transforms.get("spec_transforms", {})
 
     def __getitem__(self, ind):
         """
@@ -84,19 +85,13 @@ class BaseDataset(Dataset):
         text = data_dict["text"]
         text_encoded = self.text_encoder.encode(text)
 
-        spectrogram = self.get_spectrogram(audio)
-
         instance_data = {
             "audio": audio,
-            "spectrogram": spectrogram,
             "text": text,
             "text_encoded": text_encoded,
             "audio_path": audio_path,
         }
 
-        # TODO think of how to apply wave augs before calculating spectrogram
-        # Note: you may want to preserve both audio in time domain and
-        # in time-frequency domain for logging
         instance_data = self.preprocess_data(instance_data)
 
         return instance_data
@@ -125,13 +120,14 @@ class BaseDataset(Dataset):
         Returns:
             spectrogram (Tensor): spectrogram for the audio.
         """
-        return self.instance_transforms["get_spectrogram"](audio)
+        return self.wav_transforms["get_spectrogram"](audio)
 
     def preprocess_data(self, instance_data):
         """
         Preprocess data with instance transforms.
 
-        Each tensor in a dict undergoes its own transform defined by the key.
+        Apply waveform transforms, create the spectrogram, then apply
+        spectrogram transforms.
 
         Args:
             instance_data (dict): dict, containing instance
@@ -141,13 +137,15 @@ class BaseDataset(Dataset):
                 (a single dataset element) (possibly transformed via
                 instance transform).
         """
-        if self.instance_transforms is not None:
-            for transform_name in self.instance_transforms.keys():
-                if transform_name == "get_spectrogram":
-                    continue  # skip special key
-                instance_data[transform_name] = self.instance_transforms[
-                    transform_name
-                ](instance_data[transform_name])
+        for transform_name, transform in self.wav_transforms.items():
+            if transform_name != "get_spectrogram":
+                instance_data["audio"] = transform(instance_data["audio"])
+
+        if "get_spectrogram" in self.wav_transforms:
+            instance_data["spectrogram"] = self.get_spectrogram(instance_data["audio"])
+
+        for transform in self.spec_transforms.values():
+            instance_data["spectrogram"] = transform(instance_data["spectrogram"])
         return instance_data
 
     @staticmethod

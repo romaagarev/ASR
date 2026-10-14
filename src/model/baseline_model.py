@@ -33,13 +33,12 @@ class BaselineModel(nn.Module):
             spectrogram (Tensor): input spectrogram.
             spectrogram_length (Tensor): spectrogram original lengths.
         Returns:
-            output (dict): output dict containing log_probs and
+            output (dict): output dict containing logits and
                 transformed lengths.
         """
-        output = self.net(spectrogram.transpose(1, 2))
-        log_probs = nn.functional.log_softmax(output, dim=-1)
-        log_probs_length = self.transform_input_lengths(spectrogram_length)
-        return {"log_probs": log_probs, "log_probs_length": log_probs_length}
+        logits = self.net(spectrogram.transpose(1, 2))
+        logits_length = self.transform_input_lengths(spectrogram_length)
+        return {"logits": logits, "logits_length": logits_length}
 
     def transform_input_lengths(self, input_lengths):
         """

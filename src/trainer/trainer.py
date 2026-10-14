@@ -90,28 +90,25 @@ class Trainer(BaseTrainer):
         self.writer.add_image("spectrogram", image)
 
     def log_predictions(
-        self, text, log_probs, log_probs_length, audio_path, examples_to_log=10, **batch
+        self, text, logits, logits_length, audio_path, examples_to_log=10, **batch
     ):
-        # TODO add beam search
-        # Note: by improving text encoder and metrics design
-        # this logging can also be improved significantly
-
-        argmax_inds = log_probs.cpu().argmax(-1).numpy()
-        argmax_inds = [
-            inds[: int(ind_len)]
-            for inds, ind_len in zip(argmax_inds, log_probs_length.numpy())
-        ]
-        argmax_texts_raw = [self.text_encoder.decode(inds) for inds in argmax_inds]
-        argmax_texts = [self.text_encoder.ctc_decode(inds) for inds in argmax_inds]
-        tuples = list(zip(argmax_texts, text, argmax_texts_raw, audio_path))
+        logits = logits[:examples_to_log].detach().cpu()
+        logits_length = logits_length[:examples_to_log].detach().cpu().tolist()
+        text = text[:examples_to_log]
+        audio_path = audio_path[:examples_to_log]
 
         rows = {}
-        for pred, target, raw_pred, audio_path in tuples[:examples_to_log]:
+        for sample_logits, length, target, path in zip(
+            logits, logits_length, text, audio_path
+        ):
+            sample_logits = sample_logits[:length]
+            raw_pred = self.text_encoder.decode(sample_logits)
+            pred = self.text_encoder.ctc_decode(sample_logits)
             target = self.text_encoder.normalize_text(target)
             wer = calc_wer(target, pred) * 100
             cer = calc_cer(target, pred) * 100
 
-            rows[Path(audio_path).name] = {
+            rows[Path(path).name] = {
                 "target": target,
                 "raw prediction": raw_pred,
                 "predictions": pred,
