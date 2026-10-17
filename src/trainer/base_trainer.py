@@ -1,3 +1,4 @@
+import random
 from abc import abstractmethod
 
 import torch
@@ -76,6 +77,10 @@ class BaseTrainer:
         self.batch_transforms = batch_transforms
 
         # define dataloaders
+        self.sample_rates = {
+            part: dataloader.dataset.target_sr
+            for part, dataloader in dataloaders.items()
+        }
         self.train_dataloader = dataloaders["train"]
         if epoch_len is None:
             # epoch-based training
@@ -266,6 +271,8 @@ class BaseTrainer:
         self.is_train = False
         self.model.eval()
         self.evaluation_metrics.reset()
+        log_batch_idx = random.randrange(len(dataloader))
+        self.writer.set_step(epoch * self.epoch_len, part)
         with torch.no_grad():
             for batch_idx, batch in tqdm(
                 enumerate(dataloader),
@@ -276,11 +283,9 @@ class BaseTrainer:
                     batch,
                     metrics=self.evaluation_metrics,
                 )
-            self.writer.set_step(epoch * self.epoch_len, part)
+                if batch_idx == log_batch_idx:
+                    self._log_batch(batch_idx, batch, part)
             self._log_scalars(self.evaluation_metrics)
-            self._log_batch(
-                batch_idx, batch, part
-            )  # log only the last batch during inference
 
         return self.evaluation_metrics.result()
 

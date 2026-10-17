@@ -1,3 +1,4 @@
+import random
 from pathlib import Path
 
 import pandas as pd
@@ -61,7 +62,7 @@ class Trainer(BaseTrainer):
             metrics.update(met.name, met(**batch))
         return batch
 
-    def _log_batch(self, batch_idx, batch, mode="train"):
+    def _log_batch(self, batch_idx, batch, mode="train", examples_to_log=10):
         """
         Log data from batch. Calls self.writer.add_* to log data
         to the experiment tracker.
@@ -72,43 +73,52 @@ class Trainer(BaseTrainer):
                 the 'process_batch' function.
             mode (str): train or inference. Defines which logging
                 rules to apply.
+            examples_to_log (int): maximum number of examples to log.
         """
-        # method to log data from you batch
-        # such as audio, text or images, for example
+        indices = random.sample(
+            range(len(batch["text"])), min(examples_to_log, len(batch["text"]))
+        )
+        self.log_predictions(indices=indices, **batch)
+        self.log_spectrogram(indices=indices, **batch)
+        self.log_audio(indices=indices, sample_rate=self.sample_rates[mode], **batch)
 
-        # logging scheme might be different for different partitions
-        if mode == "train":  # the method is called only every self.log_step steps
-            self.log_spectrogram(**batch)
-        else:
-            # Log Stuff
-            self.log_spectrogram(**batch)
-            self.log_predictions(**batch)
+    def log_spectrogram(
+        self, spectrogram, spectrogram_length, audio_path, indices, **batch
+    ):
+        for i in indices:
+            length = int(spectrogram_length[i])
+            spectrogram_for_plot = spectrogram[i, :, :length].detach().cpu()
+            image = plot_spectrogram(spectrogram_for_plot)
+            self.writer.add_image(f"spectrogram_{Path(audio_path[i]).stem}", image)
 
-    def log_spectrogram(self, spectrogram, **batch):
-        spectrogram_for_plot = spectrogram[0].detach().cpu()
-        image = plot_spectrogram(spectrogram_for_plot)
-        self.writer.add_image("spectrogram", image)
+    def log_audio(self, audio, audio_length, audio_path, indices, sample_rate, **batch):
+        for i in indices:
+            length = int(audio_length[i])
+            self.writer.add_audio(
+                f"audio_{Path(audio_path[i]).stem}",
+                audio[i, :length],
+                sample_rate=sample_rate,
+            )
 
     def log_predictions(
-        self, text, logits, logits_length, audio_path, examples_to_log=10, **batch
+        self, text, logits, logits_length, audio_path, indices, **batch
     ):
-        logits = logits[:examples_to_log].detach().cpu()
-        logits_length = logits_length[:examples_to_log].detach().cpu().tolist()
-        text = text[:examples_to_log]
-        audio_path = audio_path[:examples_to_log]
-
         rows = {}
-        for sample_logits, length, target, path in zip(
-            logits, logits_length, text, audio_path
-        ):
-            sample_logits = sample_logits[:length]
+        for i in indices:
+            length = int(logits_length[i])
+            sample_logits = logits[i, :length].detach().cpu()
             raw_pred = self.text_encoder.decode(sample_logits)
             pred = self.text_encoder.ctc_decode(sample_logits)
-            target = self.text_encoder.normalize_text(target)
+            target = self.text_encoder.normalize_text(text[i])
             wer = calc_wer(target, pred) * 100
             cer = calc_cer(target, pred) * 100
+            path = Path(audio_path[i])
 
-            rows[Path(path).name] = {
+            self.writer.add_text(
+                f"prediction_{path.stem}",
+                f"target: {target}, prediction: {pred}, CER: {cer:.2f}%, WER: {wer:.2f}%",
+            )
+            rows[path.name] = {
                 "target": target,
                 "raw prediction": raw_pred,
                 "predictions": pred,
