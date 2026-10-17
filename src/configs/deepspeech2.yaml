@@ -1,7 +1,7 @@
 defaults:
   - model: deepspeech2
   - writer: cometml
-  - metrics: beam_search
+  - metrics: example
   - datasets: deepspeech2
   - dataloader: example
   - transforms: deepspeech2
@@ -25,8 +25,7 @@ loss_function:
   _target_: src.loss.CTCLossWrapper
   blank: 0
 text_encoder:
-  _target_: src.text_encoder.CTCBMTextEncoder
-  beam_width: 10
+  _target_: src.text_encoder.ArgmaxCTCTextEncoder
 writer:
   project_name: asr
   run_name: deepspeech2
@@ -36,13 +35,13 @@ dataloader:
   persistent_workers: true
 trainer:
   log_step: 50
-  n_epochs: 50
+  n_epochs: 100
   epoch_len: 1000
   device_tensors: ["spectrogram", "text_encoded"]
   resume_from: null
   device: cuda
   override: false
-  monitor: "min val_WER_(BeamSearch)"
+  monitor: "min val_WER_(Argmax)"
   save_period: 1
   early_stop: ${trainer.n_epochs}
   save_dir: saved

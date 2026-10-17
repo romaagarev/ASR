@@ -106,6 +106,7 @@ input/
 saved/
 wandb/
 .cometml-runs/
+/.comet/token.txt
 outputs/
 
 # editor, os cache directory

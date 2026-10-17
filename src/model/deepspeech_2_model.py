@@ -1,7 +1,7 @@
+import torch
 from torch import nn
 from torch.nn import Sequential
-
-from src.model.rnn import RNN
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 
 class DeepSpeech2Model(nn.Module):
@@ -25,7 +25,7 @@ class DeepSpeech2Model(nn.Module):
                         stride=(2, 2),
                         padding=(20, 5),
                     ),
-                    nn.BatchNorm2d(32),
+                    nn.BatchNorm1d(32),
                     nn.Hardtanh(min_val=0, max_val=20),
                     nn.Conv2d(
                         in_channels=32,
@@ -34,7 +34,7 @@ class DeepSpeech2Model(nn.Module):
                         stride=(2, 1),
                         padding=(10, 5),
                     ),
-                    nn.BatchNorm2d(32),
+                    nn.BatchNorm1d(32),
                     nn.Hardtanh(min_val=0, max_val=20),
                     nn.Conv2d(
                         in_channels=32,
@@ -43,13 +43,15 @@ class DeepSpeech2Model(nn.Module):
                         stride=(2, 1),
                         padding=(10, 5),
                     ),
-                    nn.BatchNorm2d(96),
+                    nn.BatchNorm1d(96),
                     nn.Hardtanh(min_val=0, max_val=20),
                 ),
-                "rnn": RNN(
+                "rnn": nn.RNN(
                     input_size=96 * ((n_feats + 7) // 8),
                     hidden_size=fc_hidden,
                     num_layers=7,
+                    nonlinearity="relu",
+                    batch_first=True,
                     bidirectional=True,
                 ),
                 "fc": nn.Linear(in_features=fc_hidden, out_features=n_tokens),
@@ -67,10 +69,41 @@ class DeepSpeech2Model(nn.Module):
             output (dict): output dict containing logits and
                 transformed lengths.
         """
-        output = self.net["conv"](spectrogram.unsqueeze(1))
+        output = spectrogram.unsqueeze(1)
+        lengths = spectrogram_length.to(output.device)
+        mask = torch.arange(output.shape[-1], device=output.device) < lengths[:, None]
+        output = output.masked_fill(~mask[:, None, None, :], 0)
+
+        for layer in self.net["conv"]:
+            if isinstance(layer, nn.Conv2d):
+                output = layer(output)
+                stride = layer.stride[1]
+                lengths = (lengths + stride - 1) // stride
+                mask = (
+                    torch.arange(output.shape[-1], device=output.device)
+                    < lengths[:, None]
+                )
+                output = output.masked_fill(~mask[:, None, None, :], 0)
+            elif isinstance(layer, nn.BatchNorm1d):
+                output = output.permute(0, 2, 3, 1)
+                valid = mask[:, None, :].expand(-1, output.shape[1], -1)
+                normalized = torch.zeros_like(output)
+                normalized[valid] = layer(output[valid])
+                output = normalized.permute(0, 3, 1, 2)
+            else:
+                output = layer(output)
+
         output = output.flatten(1, 2).transpose(1, 2)
+        batch_size, time_steps, _ = output.shape
         logits_length = self.transform_input_lengths(spectrogram_length)
-        output = self.net["rnn"](output, logits_length)
+        output = pack_padded_sequence(
+            output, logits_length.cpu(), batch_first=True, enforce_sorted=False
+        )
+        output, _ = self.net["rnn"](output)
+        output, _ = pad_packed_sequence(
+            output, batch_first=True, total_length=time_steps
+        )
+        output = output.reshape(batch_size, time_steps, 2, -1).sum(dim=2)
         logits = self.net["fc"](output)
         return {"logits": logits, "logits_length": logits_length}
 
@@ -85,7 +118,7 @@ class DeepSpeech2Model(nn.Module):
             output_lengths (Tensor): new temporal lengths
         """
         return (input_lengths + 1) // 2
-    
+
     def __str__(self):
         """
         Model prints with the number of parameters.

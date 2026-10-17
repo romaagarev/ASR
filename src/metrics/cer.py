@@ -5,7 +5,8 @@ from torch import Tensor
 from src.metrics.base_metric import BaseMetric
 from src.metrics.utils import calc_cer
 
-class ArgmaxCERMetric(BaseMetric):
+
+class CERMetric(BaseMetric):
     def __init__(self, text_encoder, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.text_encoder = text_encoder
