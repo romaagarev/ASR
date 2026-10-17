@@ -1,0 +1,30 @@
+train:
+  wav_transforms:
+    get_spectrogram:
+      _target_: torchaudio.transforms.MelSpectrogram
+      sample_rate: 16000
+      n_fft: 1024
+      win_length: 400
+      hop_length: 160
+      n_mels: ${model.n_feats}
+      power: 2.0
+    audio:
+      _target_: src.transforms.wav_augs.Gain
+  spec_transforms:
+    to_db:
+      _target_: torchaudio.transforms.AmplitudeToDB
+      stype: power
+inference:
+  wav_transforms:
+    get_spectrogram:
+      _target_: torchaudio.transforms.MelSpectrogram
+      sample_rate: 16000
+      n_fft: 1024
+      win_length: 400
+      hop_length: 160
+      n_mels: ${model.n_feats}
+      power: 2.0
+  spec_transforms:
+    to_db:
+      _target_: torchaudio.transforms.AmplitudeToDB
+      stype: power

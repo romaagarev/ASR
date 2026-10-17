@@ -1,0 +1,51 @@
+defaults:
+  - model: deepspeech2
+  - writer: cometml
+  - metrics: beam_search
+  - datasets: deepspeech2
+  - dataloader: example
+  - transforms: deepspeech2
+  - _self_
+data_dir: data/datasets/librispeech
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 1e-4
+  weight_decay: 1e-4
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.OneCycleLR
+  max_lr: 1e-3
+  div_factor: 10
+  final_div_factor: 10
+  pct_start: 0.1
+  steps_per_epoch: ${trainer.epoch_len}
+  epochs: ${trainer.n_epochs}
+  anneal_strategy: cos
+  cycle_momentum: false
+loss_function:
+  _target_: src.loss.CTCLossWrapper
+  blank: 0
+text_encoder:
+  _target_: src.text_encoder.CTCBMTextEncoder
+  beam_width: 10
+writer:
+  project_name: asr
+  run_name: deepspeech2
+dataloader:
+  batch_size: 4
+  num_workers: 2
+  persistent_workers: true
+trainer:
+  log_step: 50
+  n_epochs: 50
+  epoch_len: 1000
+  device_tensors: ["spectrogram", "text_encoded"]
+  resume_from: null
+  device: cuda
+  override: false
+  monitor: "min val_WER_(BeamSearch)"
+  save_period: 1
+  early_stop: ${trainer.n_epochs}
+  save_dir: saved
+  seed: 1
+  max_grad_norm: 1.0
+  skip_oom: false
