@@ -160,6 +160,10 @@ class BaseTrainer:
             self.logger.info("Saving model on keyboard interrupt")
             self._save_checkpoint(self._last_epoch, save_best=False)
             raise e
+        except FloatingPointError:
+            self.logger.exception("Non-finite loss or gradients. Saving checkpoint")
+            self._save_checkpoint(self._last_epoch, save_best=False)
+            raise
 
     def _train_process(self):
         """

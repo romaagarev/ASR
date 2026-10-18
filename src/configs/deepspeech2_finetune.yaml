@@ -7,9 +7,18 @@ defaults:
 common_voice_data_dir: data/datasets/common_voice_17_0
 
 writer:
-  run_name: deepspeech2_finetune
+  run_name: deepspeech2_finetune_v3
+
+optimizer:
+  lr: 1e-5
+
+lr_scheduler:
+  max_lr: 1e-4
+  div_factor: 10
+  final_div_factor: 1
 
 trainer:
   n_epochs: 400
   epoch_len: 1000
+  save_period: 1
   from_pretrained: saved/deepspeech2/model_best.pth

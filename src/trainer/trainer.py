@@ -1,7 +1,9 @@
+import math
 import random
 from pathlib import Path
 
 import pandas as pd
+import torch
 
 from src.logger.utils import plot_spectrogram
 from src.metrics.tracker import MetricTracker
@@ -47,8 +49,13 @@ class Trainer(BaseTrainer):
         all_losses = self.criterion(**batch)
         batch.update(all_losses)
 
+        if not torch.isfinite(batch["loss"]):
+            raise FloatingPointError("Non-finite loss")
+
         if self.is_train:
             batch["loss"].backward()  # sum of all losses is always called loss
+            if not math.isfinite(self._get_grad_norm()):
+                raise FloatingPointError("Non-finite gradient norm")
             self._clip_grad_norm()
             self.optimizer.step()
             if self.lr_scheduler is not None:
