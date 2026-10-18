@@ -1,7 +1,8 @@
 torch==2.2.0
 torchvision==0.17.0
 torchaudio==2.2.0
-datasets
+datasets==3.6.0
+huggingface-hub==0.35.3
 soundfile
 numpy==1.26.4
 scipy

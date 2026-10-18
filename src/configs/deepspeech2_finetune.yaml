@@ -1,0 +1,15 @@
+defaults:
+  - deepspeech2
+  - override datasets: deepspeech2_finetune
+  - override transforms: deepspeech2_finetune
+  - _self_
+
+common_voice_data_dir: data/datasets/common_voice_17_0
+
+writer:
+  run_name: deepspeech2_finetune
+
+trainer:
+  n_epochs: 400
+  epoch_len: 1000
+  from_pretrained: saved/deepspeech2/model_best.pth
