@@ -7,7 +7,10 @@ defaults:
 common_voice_data_dir: data/datasets/common_voice_17_0
 
 writer:
-  run_name: deepspeech2_finetune_v3
+  run_name: deepspeech2_finetune_v4
+
+loss_function:
+  zero_infinity: true
 
 optimizer:
   lr: 1e-5

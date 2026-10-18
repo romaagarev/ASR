@@ -12,9 +12,3 @@ train:
       _target_: src.transforms.wav_augs.AddNoise
       min_snr: 20
       max_snr: 30
-  spec_transforms:
-    spec_augment:
-      _target_: src.transforms.spec_augs.SpecAugment
-      freq_mask_param: 12
-      time_mask_param: 30
-      time_mask_ratio: 0.1
