@@ -1,2 +1,3 @@
+from src.text_encoder.ctc_bm_lm_encoder import CTCBMLMTextEncoder
 from src.text_encoder.ctc_bm_text_encoder import CTCBMTextEncoder
 from src.text_encoder.ctc_text_encoder import ArgmaxCTCTextEncoder, CTCTextEncoder
