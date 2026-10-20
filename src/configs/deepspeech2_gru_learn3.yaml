@@ -1,0 +1,48 @@
+defaults:
+  - model: deepspeech2
+  - writer: cometml
+  - metrics: example
+  - datasets: deepspeech2_learn2
+  - dataloader: example
+  - transforms: deepspeech2_gru
+  - _self_
+data_dir: data/datasets/librispeech
+model:
+  _target_: src.model.deepspeech_2_model_drop02.DeepSpeech2Model
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 1e-4
+  weight_decay: 1e-4
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.ConstantLR
+  factor: 1.0
+  total_iters: 300000
+loss_function:
+  _target_: src.loss.CTCLossWrapper
+  blank: 0
+  zero_infinity: true
+text_encoder:
+  _target_: src.text_encoder.ArgmaxCTCTextEncoder
+writer:
+  project_name: asr
+  run_name: deepspeech2_gru_learn3
+dataloader:
+  batch_size: 4
+  num_workers: 2
+  persistent_workers: true
+trainer:
+  log_step: 50
+  n_epochs: 300
+  epoch_len: 1000
+  device_tensors: ["spectrogram", "text_encoded"]
+  resume_from: null
+  from_pretrained: saved/deepspeech2_gru_learn2/model_best.pth
+  device: cuda
+  override: false
+  monitor: "min val_WER_(Argmax)"
+  save_period: 1
+  early_stop: ${trainer.n_epochs}
+  save_dir: saved
+  seed: 2
+  max_grad_norm: 5.0
+  skip_oom: false

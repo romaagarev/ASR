@@ -1,5 +1,5 @@
 defaults:
-  - instance_transforms: deepspeech2
+  - instance_transforms: deepspeech2_gru
   - _self_
 
 batch_transforms:

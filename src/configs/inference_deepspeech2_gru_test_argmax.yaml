@@ -1,0 +1,37 @@
+defaults:
+  - model: deepspeech2
+  - writer: cometml
+  - datasets: librispeech_test
+  - dataloader: example
+  - transforms: deepspeech2_gru
+  - _self_
+
+data_dir: data/datasets/librispeech
+
+writer:
+  project_name: asr
+  run_name: deepspeech2_gru_learn4_test_argmax
+
+model:
+  _target_: src.model.deepspeech_2_model_drop02.DeepSpeech2Model
+
+text_encoder:
+  _target_: src.text_encoder.ArgmaxCTCTextEncoder
+
+metrics:
+  inference:
+    - _target_: src.metrics.CERMetric
+      name: CER
+    - _target_: src.metrics.WERMetric
+      name: WER
+
+dataloader:
+  batch_size: 1
+  num_workers: 2
+
+inferencer:
+  device_tensors: ["spectrogram"]
+  device: auto
+  save_path: deepspeech2_gru_test_argmax
+  seed: 1
+  from_pretrained: saved/deepspeech2_gru_learn4/model_best.pth

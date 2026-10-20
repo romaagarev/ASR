@@ -1,0 +1,32 @@
+defaults:
+  - model: deepspeech2
+  - datasets: custom
+  - dataloader: example
+  - transforms: deepspeech2_gru
+  - _self_
+
+input_dir: ???
+
+model:
+  _target_: src.model.deepspeech_2_model_drop02.DeepSpeech2Model
+
+text_encoder:
+  _target_: src.text_encoder.CTCBMLMTextEncoder
+  beam_width: 64
+  lm_name: nllg/bygpt5-small-en
+  lm_weight: 0.7
+  word_bonus: 0.5
+
+metrics:
+  inference: []
+
+dataloader:
+  batch_size: 1
+  num_workers: 0
+
+inferencer:
+  device_tensors: ["spectrogram"]
+  device: auto
+  save_path: deepspeech2
+  seed: 1
+  from_pretrained: ???

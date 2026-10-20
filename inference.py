@@ -1,8 +1,10 @@
+import logging
 import warnings
 
 import hydra
 import torch
 from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
 from src.datasets.data_utils import get_dataloaders
 from src.trainer import Inferencer
@@ -12,7 +14,9 @@ from src.utils.io_utils import ROOT_PATH
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-@hydra.main(version_base=None, config_path="src/configs", config_name="inference")
+@hydra.main(
+    version_base=None, config_path="src/configs", config_name="inference_deepspeech2"
+)
 def main(config):
     """
     Main script for inference. Instantiates the model, metrics, and
@@ -64,12 +68,20 @@ def main(config):
         skip_model_load=False,
     )
 
-    logs = inferencer.run_inference()
+    writer = None
+    if config.get("writer") is not None:
+        logger = logging.getLogger("inference")
+        project_config = OmegaConf.to_container(config)
+        writer = instantiate(config.writer, logger, project_config)
+
+    logs = inferencer.run_inference(writer=writer)
+    if writer is not None:
+        writer.exp.end()
 
     for part in logs.keys():
         for key, value in logs[part].items():
             full_key = part + "_" + key
-            print(f"    {full_key:15s}: {value}")
+            print(f"{full_key:15s}: {value}")
 
 
 if __name__ == "__main__":

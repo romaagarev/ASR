@@ -1,79 +1,48 @@
-# Automatic Speech Recognition (ASR) with PyTorch
+# ASR
 
-<p align="center">
-  <a href="#about">About</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#how-to-use">How To Use</a> •
-  <a href="#credits">Credits</a> •
-  <a href="#license">License</a>
-</p>
-
-## About
-
-This repository contains a template for solving ASR task with PyTorch. This template branch is a part of the [HSE DLA course](https://github.com/markovka17/dla) ASR homework. Some parts of the code are missing (or do not follow the most optimal design choices...) and students are required to fill these parts themselves (as well as writing their own models, etc.).
-
-See the task assignment [here](https://github.com/markovka17/dla/tree/2024/hw1_asr).
-
-## Installation
-
-Follow these steps to install the project:
-
-0. (Optional) Create and activate new environment using [`conda`](https://conda.io/projects/conda/en/latest/user-guide/getting-started.html) or `venv` ([`+pyenv`](https://github.com/pyenv/pyenv)).
-
-   a. `conda` version:
-
-   ```bash
-   # create env
-   conda create -n project_env python=PYTHON_VERSION
-
-   # activate env
-   conda activate project_env
-   ```
-
-   b. `venv` (`+pyenv`) version:
-
-   ```bash
-   # create env
-   ~/.pyenv/versions/PYTHON_VERSION/bin/python3 -m venv project_env
-
-   # alternatively, using default python version
-   python3 -m venv project_env
-
-   # activate env
-   source project_env/bin/activate
-   ```
-
-1. Install all required packages
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Install `pre-commit`:
-   ```bash
-   pre-commit install
-   ```
-
-## How To Use
-
-To train a model, run the following command:
+## Установка
 
 ```bash
-python3 train.py -cn=CONFIG_NAME HYDRA_CONFIG_ARGUMENTS
+python3.11 -m venv project_env
+source project_env/bin/activate
+pip install -r requirements.txt
+pip install transformers==4.43.3
+pip install --no-deps -r requirements_lm.txt
 ```
 
-Where `CONFIG_NAME` is a config from `src/configs` and `HYDRA_CONFIG_ARGUMENTS` are optional arguments.
+## Инференс
 
-To run inference (evaluate the model or save predictions):
+Датасет должен иметь такую структуру:
+
+```text
+dataset/
+  audio/
+    sample.wav
+  transcriptions/
+    sample.txt
+```
+
+Папка `transcriptions/` необязательна. Имена аудио и текстов должны совпадать без расширения.
+
+Запуск с beam search и ByGPT5-small-en. Языковая модель скачивается автоматически:
 
 ```bash
-python3 inference.py HYDRA_CONFIG_ARGUMENTS
+python inference.py --config-name inference_deepspeech2 \
+  input_dir=/path/to/dataset \
+  inferencer.from_pretrained=/path/to/model.pth \
+  inferencer.save_path=/path/to/predictions
 ```
 
-## Credits
+Предсказания будут в `/path/to/predictions/custom/`, по одному текстовому файлу на запись.
 
-This repository is based on a [PyTorch Project Template](https://github.com/Blinorot/pytorch_project_template).
+CER и WER считаются отдельной командой:
 
-## License
+```bash
+python calc_metrics.py /path/to/dataset/transcriptions /path/to/predictions/custom
+```
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](/LICENSE)
+Скрипт выводит средние CER и WER по записям в процентах.
+
+## Demo
+
+Откройте demo.ipynb в Colab, укажите `DATASET_URL` и запустите все ячейки. В корне ZIP- или TAR-архива должны лежать `audio/` и, если есть разметка, `transcriptions/`.

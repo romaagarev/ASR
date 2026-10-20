@@ -1,6 +1,0 @@
-train: []
-inference:
-  - _target_: src.metrics.CERMetric
-    name: "CER_(BeamSearch)"
-  - _target_: src.metrics.WERMetric
-    name: "WER_(BeamSearch)"

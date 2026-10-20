@@ -86,10 +86,10 @@ class Inferencer(BaseTrainer):
             # init model
             self._from_pretrained(config.inferencer.get("from_pretrained"))
 
-    def run_inference(self):
+    def run_inference(self, writer=None):
         """
         Run inference on each partition.
-
+        
         Returns:
             part_logs (dict): part_logs[part_name] contains logs
                 for the part_name partition.
@@ -98,6 +98,9 @@ class Inferencer(BaseTrainer):
         for part, dataloader in self.evaluation_dataloaders.items():
             logs = self._inference_part(part, dataloader)
             part_logs[part] = logs
+            if writer is not None:
+                writer.set_step(0, part)
+                writer.add_scalars(logs)
         return part_logs
 
     def process_batch(self, batch_idx, batch, metrics, part):

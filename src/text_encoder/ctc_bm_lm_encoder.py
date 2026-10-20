@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 
 from src.text_encoder.ctc_bm_text_encoder import CTCBMTextEncoder
+from uniformers.models.bygpt5 import ByGPT5LMHeadModel, ByGPT5Tokenizer
 
 
 @dataclass
@@ -37,8 +38,6 @@ class CTCBMLMTextEncoder(CTCBMTextEncoder):
     def _load_lm(self):
         if self.lm is not None:
             return
-
-        from uniformers.models.bygpt5 import ByGPT5LMHeadModel, ByGPT5Tokenizer
 
         tokenizer = ByGPT5Tokenizer.from_pretrained(
             self.lm_name,

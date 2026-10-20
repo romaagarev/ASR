@@ -1,0 +1,16 @@
+torch==2.8.0
+torchvision==0.23.0
+torchaudio==2.8.0
+datasets==3.6.0
+huggingface-hub==0.35.3
+pyarrow==19.0.1
+soundfile
+numpy==1.26.4
+torch_audiomentations
+tqdm
+wget==3.2
+matplotlib
+pandas
+hydra-core
+gdown==5.2.0
+transformers==4.43.3

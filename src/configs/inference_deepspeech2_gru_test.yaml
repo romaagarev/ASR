@@ -1,0 +1,48 @@
+defaults:
+  - model: deepspeech2
+  - writer: cometml
+  - dataloader: example
+  - transforms: deepspeech2_gru
+  - _self_
+
+data_dir: data/datasets/librispeech
+
+writer:
+  project_name: asr
+  run_name: deepspeech2_gru_learn4_test_other_beam64_lm
+
+model:
+  _target_: src.model.deepspeech_2_model_drop02.DeepSpeech2Model
+
+text_encoder:
+  _target_: src.text_encoder.CTCBMLMTextEncoder
+  beam_width: 64
+  lm_name: nllg/bygpt5-small-en
+  lm_weight: 0.7
+  word_bonus: 0.5
+
+datasets:
+  test_other:
+    _target_: src.datasets.LibrispeechDataset
+    part: test-other
+    data_dir: ${data_dir}
+    target_sr: 16000
+    instance_transforms: ${transforms.instance_transforms.inference}
+
+metrics:
+  inference:
+    - _target_: src.metrics.CERMetric
+      name: CER
+    - _target_: src.metrics.WERMetric
+      name: WER
+
+dataloader:
+  batch_size: 1
+  num_workers: 2
+
+inferencer:
+  device_tensors: ["spectrogram"]
+  device: auto
+  save_path: deepspeech2_gru_test_other_beam64_lm
+  seed: 1
+  from_pretrained: saved/deepspeech2_gru_learn4/model_best.pth

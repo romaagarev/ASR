@@ -12,13 +12,23 @@ class CERMetric(BaseMetric):
         self.text_encoder = text_encoder
 
     def __call__(
-        self, logits: Tensor, logits_length: Tensor, text: List[str], **kwargs
+        self,
+        logits: Tensor,
+        logits_length: Tensor,
+        text: List[str],
+        pred_text=None,
+        **kwargs,
     ):
+        if pred_text is None:
+            predictions = logits.detach().cpu()
+            lengths = logits_length.detach().cpu().tolist()
+            pred_text = [
+                self.text_encoder.ctc_decode(logits_vec[:length])
+                for logits_vec, length in zip(predictions, lengths)
+            ]
+
         cers = []
-        predictions = logits.detach().cpu()
-        lengths = logits_length.detach().cpu().tolist()
-        for logits_vec, length, target_text in zip(predictions, lengths, text):
+        for target_text, prediction in zip(text, pred_text):
             target_text = self.text_encoder.normalize_text(target_text)
-            pred_text = self.text_encoder.ctc_decode(logits_vec[:length])
-            cers.append(calc_cer(target_text, pred_text))
+            cers.append(calc_cer(target_text, prediction))
         return sum(cers) / len(cers)

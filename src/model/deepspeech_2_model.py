@@ -1,7 +1,11 @@
 import torch
 from torch import nn
 from torch.nn import Sequential
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import (
+    PackedSequence,
+    pack_padded_sequence,
+    pad_packed_sequence,
+)
 
 
 class DeepSpeech2Model(nn.Module):
@@ -46,15 +50,33 @@ class DeepSpeech2Model(nn.Module):
                     nn.BatchNorm1d(96),
                     nn.Hardtanh(min_val=0, max_val=20),
                 ),
-                "rnn": nn.RNN(
-                    input_size=96 * ((n_feats + 7) // 8),
-                    hidden_size=fc_hidden,
-                    num_layers=7,
-                    nonlinearity="relu",
-                    batch_first=True,
-                    bidirectional=True,
+                "rnn": nn.ModuleList(
+                    [
+                        nn.ModuleDict(
+                            {
+                                "gru": nn.GRU(
+                                    input_size=(
+                                        96 * ((n_feats + 7) // 8)
+                                        if layer_index == 0
+                                        else 2 * fc_hidden
+                                    ),
+                                    hidden_size=fc_hidden,
+                                    batch_first=True,
+                                    bidirectional=True,
+                                ),
+                                "batch_norm": nn.BatchNorm1d(2 * fc_hidden),
+                            }
+                        )
+                        for layer_index in range(5)
+                    ]
                 ),
-                "fc": nn.Linear(in_features=fc_hidden, out_features=n_tokens),
+                "dropout": nn.Dropout(0.5),
+                "fc": Sequential(
+                    nn.Linear(2 * fc_hidden, 2 * fc_hidden),
+                    nn.ReLU(),
+                    nn.Dropout(0.5),
+                    nn.Linear(2 * fc_hidden, n_tokens),
+                ),
             }
         )
 
@@ -94,16 +116,22 @@ class DeepSpeech2Model(nn.Module):
                 output = layer(output)
 
         output = output.flatten(1, 2).transpose(1, 2)
-        batch_size, time_steps, _ = output.shape
+        time_steps = output.shape[1]
         logits_length = self.transform_input_lengths(spectrogram_length)
         output = pack_padded_sequence(
             output, logits_length.cpu(), batch_first=True, enforce_sorted=False
         )
-        output, _ = self.net["rnn"](output)
+        for layer_index, layer in enumerate(self.net["rnn"]):
+            output, _ = layer["gru"](output)
+            data = layer["batch_norm"](output.data)
+            if layer_index < len(self.net["rnn"]) - 1:
+                data = self.net["dropout"](data)
+            output = PackedSequence(
+                data, output.batch_sizes, output.sorted_indices, output.unsorted_indices
+            )
         output, _ = pad_packed_sequence(
             output, batch_first=True, total_length=time_steps
         )
-        output = output.reshape(batch_size, time_steps, 2, -1).sum(dim=2)
         logits = self.net["fc"](output)
         return {"logits": logits, "logits_length": logits_length}
 
